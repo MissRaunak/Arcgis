@@ -49,13 +49,19 @@
             flex-direction: row;
             column-gap: 4%;
         } */
+        .box{
+            border:2px solid blue
+        }
+      
+        @media(min-width:900px){display:flex}
+        
     </style>
 </head>
 
 <body>
 
 
-    <div style="display: flex; border: 2px solid blue;">
+    <div class="box">
 
         <div style="width:100%; border: 2px solid; padding: 0.5rem;">
             <button onclick="getLocation()" class="btn">geolocation</button>

@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://js.arcgis.com/4.24/esri/themes/light/main.css">
+    <script src="https://js.arcgis.com/4.24/"></script>
+    <title>Arcgis</title>
+    <style>
+        html,
+        body,
+        #mymap {
+            padding: 0;
+            margin: 0;
+            height: 100%;
+            width: 100%;
+        }
+
+        .btn {
+            background: blue;
+            color: #fff;
+            width: 100%;
+            padding: 0.5rem;
+            margin: 0.2rem 0;
+            border: none;
+            box-shadow: rgba(0, 0, 0, 0.02) 0px 1px 3px 0px, rgba(27, 31, 35, 0.15) 0px 0px 0px 1px;
+
+        }
+
+        #dis {
+            box-shadow: rgba(0, 0, 0, 0.02) 0px 1px 3px 0px, rgba(27, 31, 35, 0.15) 0px 0px 0px 1px;
+            margin: 0.2rem 0;
+        }
+
+        #sketchs {
+            position: absolute;
+            z-index: 2;
+            left: 20%;
+            margin: 1rem;
+        }
+
+        .mainWindow {
+            background: papayawhip;
+            padding: 0.5rem;
+        }
+
+        /* .esri-ui-bottom-left {
+            display: block;
+            flex-direction: column;
+            top: 13%;
+        }
+        .esri-compass {
+            margin-bottom: 22%;
+        }
+        .esri-ui-top-left {
+            display: flex;
+            flex-direction: row;
+            column-gap: 4%;
+        } */
+    </style>
+</head>
+
+<body>
+
+
+    <div style="display: flex; border: 2px solid blue;">
+
+        <div style="width:100%; border: 2px solid; padding: 0.5rem;">
+            <button onclick="getLocation()" class="btn">geolocation</button>
+            <div id="output"></div>
+            <button id="open" class="btn">BasemapGallery</button>
+            <div id="BasemapGallerydiv" style="height: 382px ; display: none;"></div>
+            <div id="dis"></div>
+            <div id="layerlist"></div>
+        </div>
+        <div style="width: 500pc; height: 100vh;">
+            <div id="sketchs"></div>
+            <div id="mainWindow">
+                <form enctype="multipart/form-data" method="post" id="uploadForm">
+                    <div class="field">
+                        <label class="file-upload">
+                            <span><strong>Add File</strong></span>
+                            <input type="file" name="file" id="inFile" />
+                        </label>
+                    </div>
+                </form>
+                <span class="file-upload-status" style="opacity:1;" id="upload-status"></span>
+                <div id="fileInfo"></div>
+            </div>
+
+            <div id="mymap"></div>
+
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-2.2.4.min.js"></script>
+
+    <script>
+        $(document).ready(function () {
+            $('#open').click(function () {
+                $('#BasemapGallerydiv').toggle();
+            });
+        });
+
+        var x = document.getElementById('output');
+        function getLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(showPosition);
+            } else {
+                x.innerHTML = " not supporting";
+            }
+        }
+        function showPosition(position) {
+            x.innerHTML = "latitude = " + position.coords.latitude;
+            x.innerHTML += "<br/>"
+            x.innerHTML += "longitude = " + position.coords.longitude;
+        }
+
+
+        require(["esri/Map",
+            "esri/views/MapView",
+            "esri/Graphic",
+            "esri/layers/GraphicsLayer",
+            "esri/widgets/Search",
+            "esri/widgets/Compass",
+            "esri/widgets/NavigationToggle",
+            "esri/widgets/Sketch",
+            "esri/widgets/BasemapGallery",
+            "esri/widgets/Home",
+            "esri/widgets/Locate",
+            "esri/widgets/ScaleBar",
+            "esri/widgets/BasemapToggle",
+            "esri/widgets/Measurement",
+            "esri/layers/MapImageLayer",
+            "esri/layers/FeatureLayer",
+            "esri/widgets/LayerList",
+            "esri/widgets/Expand",
+            "esri/request",
+            "esri/layers/support/Field",
+            "esri/symbols/SimpleFillSymbol",
+            "esri/widgets/Legend",
+            "esri/widgets/FeatureTable"], function (Map, MapView, Graphic, GraphicsLayer, Search, Compass,
+                navigationToggle, Sketch, BasemapGallery, Home, Locate, ScaleBar, BasemapToggle,
+                Measurement, MapImageLayer, FeatureLayer, LayerList, Expand, request, Field, SimpleFillSymbol, Legend, FeatureTable) {
+            const map = new Map({
+                basemap: "osm"
+            });
+            const view = new MapView({
+                map: map,
+                center: [77.99889204344834, 26.50376620273325],
+                zoom: 10,
+                container: "mymap"
+            });
+
+            //BasemapGallery
+            let basemapGallery = new BasemapGallery({
+                view: view,
+                container: BasemapGallerydiv
+            });
+
+            //compass
+            let compass = new Compass({
+                view: view
+            });
+
+            //home
+            let home = new Home({
+                view: view
+            });
+            //location
+            let location = new Locate({
+                view: view
+            });
+
+            //scale
+            let scale = new ScaleBar({
+                view: view,
+            });
+            //basemapToggle
+            let basemapToggle = new BasemapToggle({
+                view: view,
+                nextBasemap: "hybrid"
+            });
+            //layerlist
+            let layerList = new LayerList({
+                view: view,
+                container: layerlist
+            });
+
+
+            //create a graphicsLayer ,sketch
+            const graphicsLayer = new GraphicsLayer();
+            map.add(graphicsLayer);
+            view.when(() => {
+                const sketch = new Sketch({
+                    layer: GraphicsLayer,
+                    view: view,
+                    creationMode: "update",
+                    container: "sketchs"
+
+                });
+                // view.ui.add(sketch, "top-right");
+            });
+            //search
+            const searchWidget = new Search({
+                view: view,
+            });
+
+            //Create a point
+            const point = {
+                type: "point",
+                longitude: 77.9889319,
+                latitude: 26.4889942
+
+            };
+            const simpleMarkerSymbol = {
+                type: "simple-marker",
+                color: [137, 207, 240],  // Orange
+                outline: {
+                    color: [238, 75, 43], // White
+                    width: 1
+                }
+            };
+            const pointGraphic = new Graphic({
+                geometry: point,
+                symbol: simpleMarkerSymbol
+            });
+            graphicsLayer.add(pointGraphic);
+            //line
+            const polyline = {
+                type: "polyline",
+                paths: [
+                    [77.99082017497705, 26.499495335824584], //Longitude, latitude
+                    [77.9987326724271, 26.497027369343265],
+                    [77.98502615935787, 26.49047751655346]
+                ]
+            };
+            const simpleLineSymbol = {
+                type: "simple-line",
+                color: [137, 207, 240], // Orange
+                width: 2
+            };
+            const polylineGraphic = new Graphic({
+                geometry: polyline,
+                symbol: simpleLineSymbol
+            });
+            graphicsLayer.add(polylineGraphic);
+            // polygon 
+            const polygon = {
+                type: "polygon",
+                rings: [
+                    [77.99527435980417, 26.518765725433134],
+                    [78.03485323837042, 26.52208580695652],
+                    [78.04050736387988, 26.48919695727463],
+                    [78.02495851872887, 26.488406244063338],
+                    [78.00499238802355, 26.478600948494933],
+                    [77.99527435980417, 26.518765725433134]
+                ]
+            };
+
+            const simpleFillSymbol = {
+                type: "simple-fill",
+                color: [255, 192, 203],  // Orange, opacity 80%
+
+                outline: {
+                    color: [255, 255, 255],
+                    width: 1
+                }
+            };
+            const polygonGraphic = new Graphic({
+                geometry: polygon,
+                symbol: simpleFillSymbol,
+
+            });
+            graphicsLayer.add(polygonGraphic);
+            //create popup
+            const popupTemplate = {
+                title: "{Name}",
+                content: "{Description}"
+            }
+            const attributes = {
+                Name: " my Graphic",
+                Description: "polygon"
+            }
+
+
+
+            const measurement = new Measurement({
+                view: view,
+                activeTool: "distance",
+                container: dis
+            });
+            // Switch between area and distance measurement
+            function switchTool() {
+                const tool = measurement.activeTool === "distance" ? "area" : "distance";
+                measurement.activeTool = tool;
+            }
+
+            view.ui.add(compass, "top-left");
+            view.ui.add(home, "top-left");
+            view.ui.add(location, "top-left");
+            view.ui.add(basemapToggle, "bottom-left");
+            view.ui.add(scale, "bottom-right");
+            view.ui.add(searchWidget, "top-right");
+
+            // mapServices and feature layer
+            var mapServiceUrl = "https://sampleserver6.arcgisonline.com/arcgis/rest/services/Census/MapServer";
+            var mapImageLayer = new MapImageLayer({
+                url: mapServiceUrl,
+                opacity: 0.75,
+                visibleLayers: [0, 2, 4]
+            });
+
+            map.add(mapImageLayer);
+
+            var renderer = {
+                type: "simple",
+                symbol: {
+                    type: "simple-fill",
+                    color: [255, 0, 0, 0.5],
+                    outline: {
+                        color: [0, 0, 0, 1],
+                        width: 1
+                    }
+                }
+            };
+            const parksLayer = new FeatureLayer({
+                url: "https://services3.arcgis.com/GVgbJbqm8hXASVYi/arcgis/rest/services/Parks_and_Open_Space/FeatureServer/0"
+            });
+            parksLayer.renderer = renderer;
+
+            map.add(parksLayer, 0);
+            // Create a feature table
+            const featureTable = new FeatureTable({
+                layer: parksLayer,
+                view: view
+            });
+
+            // Add the feature table to the view
+            view.ui.add(featureTable, "top-right");
+            //expand icon 
+            const fileForm = document.getElementById("mainWindow");
+
+            const expand = new Expand({
+                expandIconClass: "esri-icon-upload",
+                view: view,
+                content: fileForm
+            });
+
+            view.ui.add(expand, "top-right");
+
+            //check file formate zip or not
+            const portalUrl = "https://www.arcgis.com";
+
+            document
+                .getElementById("uploadForm")
+                .addEventListener("change", (event) => {
+                    const fileName = event.target.value.toLowerCase();
+                    if (fileName.indexOf(".zip") !== -1) {
+                        generateFeatureCollection(fileName);
+                    } else {
+                        document.getElementById("upload-status").innerHTML =
+                            '<p style="color:red">Add shapefile as .zip file</p>';
+                    }
+                });
+
+            ///upload shapefile 
+            function generateFeatureCollection(fileName) {
+                let name = fileName.split(".");
+                name = name[0].replace("c:\\fakepath\\", "");
+
+                document.getElementById("upload-status").innerHTML =
+                    "<b>Loading </b>" + name;
+                const params = {
+                    name: name,
+                    targetSR: view.spatialReference,
+                    maxRecordCount: 1000,
+                    enforceInputFileSizeLimit: true,
+                    enforceOutputJsonSizeLimit: true
+                };
+                params.generalize = true;
+                params.maxAllowableOffset = 10;
+                params.reducePrecision = true;
+                params.numberOfDigitsAfterDecimal = 0;
+
+                const myContent = {
+                    filetype: "shapefile",
+                    publishParameters: JSON.stringify(params),
+                    f: "json"
+                };
+                request(portalUrl + "/sharing/rest/content/features/generate", {
+                    query: myContent,
+                    body: document.getElementById("uploadForm"),
+                    responseType: "json"
+                })
+                    .then((response) => {
+                        const layerName =
+                            response.data.featureCollection.layers[0].layerDefinition.name;
+                        document.getElementById("upload-status").innerHTML =
+                            "<b>Loaded: </b>" + layerName;
+                        addShapefileToMap(response.data.featureCollection);
+                    })
+                    .catch(errorHandler);
+            }
+
+            function errorHandler(error) {
+                document.getElementById("upload-status").innerHTML =
+                    "<p style='color:red;max-width: 500px;'>" + error.message + "</p>";
+            }
+            //add the shapefile to the map and zoom
+
+            function addShapefileToMap(featureCollection) {
+                let sourceGraphics = [];
+                const layers = featureCollection.layers.map((layer) => {
+                    const graphics = layer.featureSet.features.map((feature) => {
+                        return Graphic.fromJSON(feature);
+                    });
+                    sourceGraphics = sourceGraphics.concat(graphics);
+                    const featureLayer = new FeatureLayer({
+                        objectIdField: "FID",
+                        source: graphics,
+
+                        fields: layer.layerDefinition.fields.map((field) => {
+                            return Field.fromJSON(field);
+
+                        })
+                    });
+                    return featureLayer;
+                });
+
+                map.addMany(layers);
+                view.goTo(sourceGraphics).catch((error) => {
+                    if (error.name != "AbortError") {
+                        console.error(error);
+                    }
+                });
+
+                document.getElementById("upload-status").innerHTML = "";
+            }
+            // legend
+            let legend = new Legend({
+                view: view
+            });
+
+            view.ui.add(legend, "bottom-right");
+        });
+    </script>
+</body>
+
+</html>
